@@ -1,11 +1,7 @@
 <script type="module">
-    // Tempatkan kode JavaScript Anda di sini
-
-
-
-    // Simple AR.js example with camera integration
     import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
     import { ARButton } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/ARButton.js";
+    import { XRControllerModelFactory } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/XRControllerModelFactory.js";
 
     // Set up the scene, camera, and renderer
     const scene = new THREE.Scene();
@@ -29,7 +25,58 @@
     cube.position.set(0, 0, -0.5); // Position the cube in front of the camera
     scene.add(cube);
 
-    
+    // Add foot tracking using a ground plane
+    const groundGeometry = new THREE.PlaneGeometry(5, 5);
+    const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Add foot marker
+    const footMarkerGeometry = new THREE.CircleGeometry(0.1, 32);
+    const footMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    const footMarker = new THREE.Mesh(footMarkerGeometry, footMarkerMaterial);
+    footMarker.rotation.x = -Math.PI / 2;
+    footMarker.position.set(0, 0.01, 0);
+    scene.add(footMarker);
+
+    // Initialize MediaPipe Hands
+    const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
+    hands.setOptions({
+        maxNumHands: 2,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+    });
+
+    hands.onResults((results) => {
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            const landmarks = results.multiHandLandmarks[0];
+            footMarker.position.x = (landmarks[0].x - 0.5) * 5; // Scale to fit the AR plane
+            footMarker.position.z = (landmarks[0].y - 0.5) * -5;
+        }
+    });
+
+    // Capture video for hand tracking
+    const videoElement = document.createElement('video');
+    videoElement.style.display = 'none';
+    document.body.appendChild(videoElement);
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+        videoElement.srcObject = stream;
+        videoElement.play();
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+        });
+        camera.start();
+    });
+
+    // Handle window resize
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -46,4 +93,5 @@
     }
 
     animate();
+        
 </script>
