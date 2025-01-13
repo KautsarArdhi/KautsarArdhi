@@ -1,97 +1,113 @@
-<script type="module">
-    import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
-    import { ARButton } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/ARButton.js";
-    import { XRControllerModelFactory } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/XRControllerModelFactory.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Foot Tracking</title>
+    <!-- MediaPipe Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+    <script type="module">
+        // Simple AR.js example with camera integration
+        import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
+        import { ARButton } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/ARButton.js";
+        import { XRControllerModelFactory } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/XRControllerModelFactory.js";
 
-    // Set up the scene, camera, and renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Enable WebXR for AR
-    renderer.xr.enabled = true;
-    document.body.appendChild(ARButton.createButton(renderer));
-
-    // Add a light source
-    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-    scene.add(light);
-
-    // Create a basic 3D object to display in AR
-    const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.set(0, 0, -0.5); // Position the cube in front of the camera
-    scene.add(cube);
-
-    // Add foot tracking using a ground plane
-    const groundGeometry = new THREE.PlaneGeometry(5, 5);
-    const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // Add foot marker
-    const footMarkerGeometry = new THREE.CircleGeometry(0.1, 32);
-    const footMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const footMarker = new THREE.Mesh(footMarkerGeometry, footMarkerMaterial);
-    footMarker.rotation.x = -Math.PI / 2;
-    footMarker.position.set(0, 0.01, 0);
-    scene.add(footMarker);
-
-    // Initialize MediaPipe Hands
-    const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-    });
-    hands.setOptions({
-        maxNumHands: 2,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-    });
-
-    hands.onResults((results) => {
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const landmarks = results.multiHandLandmarks[0];
-            footMarker.position.x = (landmarks[0].x - 0.5) * 5; // Scale to fit the AR plane
-            footMarker.position.z = (landmarks[0].y - 0.5) * -5;
-        }
-    });
-
-    // Capture video for hand tracking
-    const videoElement = document.createElement('video');
-    videoElement.style.display = 'none';
-    document.body.appendChild(videoElement);
-
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-        videoElement.srcObject = stream;
-        videoElement.play();
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({ image: videoElement });
-            },
-        });
-        camera.start();
-    });
-
-    // Handle window resize
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+        document.body.appendChild(renderer.domElement);
 
-    // Animation loop
-    function animate() {
-        renderer.setAnimationLoop(() => {
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
-            renderer.render(scene, camera);
+        // Enable WebXR for AR
+        renderer.xr.enabled = true;
+        document.body.appendChild(ARButton.createButton(renderer));
+
+        // Add a light source
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+        scene.add(light);
+
+        // Create a basic 3D object to display in AR
+        const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.set(0, 0, -0.5); // Position the cube in front of the camera
+        scene.add(cube);
+
+        // Add foot tracking using a ground plane
+        const groundGeometry = new THREE.PlaneGeometry(5, 5);
+        const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Add foot marker
+        const footMarkerGeometry = new THREE.CircleGeometry(0.1, 32);
+        const footMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const footMarker = new THREE.Mesh(footMarkerGeometry, footMarkerMaterial);
+        footMarker.rotation.x = -Math.PI / 2;
+        footMarker.position.set(0, 0.01, 0);
+        scene.add(footMarker);
+
+        // Initialize MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
         });
-    }
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+        });
 
-    animate();
-        
-</script>
+        pose.onResults((results) => {
+            if (results.poseLandmarks) {
+                // Get the right foot ankle landmark (landmark 28)
+                const ankle = results.poseLandmarks[28];
+                footMarker.position.x = (ankle.x - 0.5) * 5; // Scale and center
+                footMarker.position.z = (ankle.y - 0.5) * -5;
+            }
+        });
+
+        // Capture video for pose tracking
+        const videoElement = document.createElement('video');
+        videoElement.style.display = 'none';
+        document.body.appendChild(videoElement);
+
+        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+            videoElement.srcObject = stream;
+            videoElement.play();
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await pose.send({ image: videoElement });
+                },
+            });
+            camera.start();
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation loop
+        function animate() {
+            renderer.setAnimationLoop(() => {
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            });
+        }
+
+        animate();
+    </script>
+</body>
+</html>
