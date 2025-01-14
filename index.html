@@ -4,56 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Foot Tracking</title>
-    <!-- MediaPipe Libraries -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        #controls label {
+            cursor: pointer;
+        }
+
+        #controls input[type="radio"] {
+            display: none;
+        }
+
+        #controls input[type="radio"]:checked + label {
+            border: 2px solid #000;
+            border-radius: 50%;
+        }
+
+        #controls img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        a-scene {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 <body>
-    <script type="module">
-        // Simple AR.js example with camera integration
-        import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
-        import { ARButton } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/ARButton.js";
-        import { XRControllerModelFactory } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/XRControllerModelFactory.js";
+    <a-scene embedded>
+        <!-- Kamera untuk AR -->
+        <a-camera id="camera" position="0 1.6 0" look-controls="true"></a-camera>
 
-        // Set up the scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        <!-- Marker untuk pelacakan kaki -->
+        <a-entity id="foot-marker"
+                  geometry="primitive: sphere; radius: 0.1"
+                  material="color: red; opacity: 0.8"
+                  position="0 0 0">
+        </a-entity>
 
-        // Enable WebXR for AR
-        renderer.xr.enabled = true;
-        document.body.appendChild(ARButton.createButton(renderer));
+        <!-- Model 3D yang akan dimuat -->
+        <a-entity id="model"
+                  scale="1.5 1.5 1.5"
+                  position="0 0 -2">
+        </a-entity>
+    </a-scene>
 
-        // Add a light source
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-        scene.add(light);
+    <script>
+        // Model Data
+        const modelData = {
+            default: '../assets/game_ready_boot/sneaker4.gltf'
+        };
 
-        // Create a basic 3D object to display in AR
-        const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.position.set(0, 0, -0.5); // Position the cube in front of the camera
-        scene.add(cube);
+        // Marker dan model
+        const footMarker = document.querySelector("#foot-marker");
+        const modelEntity = document.querySelector("#model");
 
-        // Add foot tracking using a ground plane
-        const groundGeometry = new THREE.PlaneGeometry(5, 5);
-        const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // Add foot marker
-        const footMarkerGeometry = new THREE.CircleGeometry(0.1, 32);
-        const footMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const footMarker = new THREE.Mesh(footMarkerGeometry, footMarkerMaterial);
-        footMarker.rotation.x = -Math.PI / 2;
-        footMarker.position.set(0, 0.01, 0);
-        scene.add(footMarker);
-
-        // Initialize MediaPipe Pose
+        // MediaPipe Pose Setup
         const pose = new Pose({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
         });
@@ -67,18 +98,30 @@
 
         pose.onResults((results) => {
             if (results.poseLandmarks) {
-                // Get the right foot ankle landmark (landmark 28)
-                const ankle = results.poseLandmarks[28];
-                footMarker.position.x = (ankle.x - 0.5) * 5; // Scale and center
-                footMarker.position.z = (ankle.y - 0.5) * -5;
+                const ankle = results.poseLandmarks[28]; // Right ankle
+                if (ankle) {
+                    // Perbarui posisi marker
+                    footMarker.setAttribute('position', {
+                        x: (ankle.x - 0.5) * 2, // Scale untuk fit scene
+                        y: -1,
+                        z: (ankle.y - 0.5) * -2
+                    });
+
+                    // Tampilkan model 3D
+                    if (!modelEntity.hasAttribute('gltf-model')) {
+                        modelEntity.setAttribute('gltf-model', modelData.default);
+                        console.log("Model loaded:", modelData.default);
+                    }
+                }
+            } else {
+                // Hapus model jika pelacakan gagal
+                modelEntity.removeAttribute('gltf-model');
+                console.log("Model removed due to tracking loss.");
             }
         });
 
-        // Capture video for pose tracking
+        // Kamera MediaPipe
         const videoElement = document.createElement('video');
-        videoElement.style.display = 'none';
-        document.body.appendChild(videoElement);
-
         navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
             videoElement.srcObject = stream;
             videoElement.play();
@@ -90,24 +133,6 @@
             });
             camera.start();
         });
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Animation loop
-        function animate() {
-            renderer.setAnimationLoop(() => {
-                cube.rotation.x += 0.01;
-                cube.rotation.y += 0.01;
-                renderer.render(scene, camera);
-            });
-        }
-
-        animate();
     </script>
 </body>
 </html>
